@@ -1,0 +1,224 @@
+import time
+import numpy
+import sys
+
+class TIEDOT():
+    aikaleima = None
+    aikavyohyke = None
+    sademaara = None
+    kategoria= None
+    mustikkamaa = None
+    kauppatori = None
+    hakaniemi = None
+
+def kysyNimi(kehote):
+    nimi = input(kehote)
+    return nimi
+
+def tiedostoLue(nimi, oliolista):
+    oliolista.clear()
+    lkm = 0
+    try:
+        tiedosto = open(nimi, "r", encoding="UTF-8")
+        tiedosto.readline()
+        
+        while True:
+            rivi = tiedosto.readline()
+            if len(rivi) == 0:
+                break
+            else:
+                tieto = TIEDOT()
+                tiedot = rivi.strip().split(';')
+                tieto.aikaleima = time.strptime(tiedot[0], "%Y.%m.%d %H:%M")
+                tieto.aikavyohyke = tiedot[1]
+                tieto.sademaara = float(tiedot[2])
+                oliolista.append(tieto)
+                lkm = lkm + 1
+                
+        print(f"Tiedosto '{nimi}' luettu.")
+        print(f"Tiedostosta lisättiin {lkm} datariviä listaan.\n")
+        tiedosto.close()
+        
+    except OSError:
+        print(f"Tiedoston '{nimi}' käsittelyssä virhe, lopetetaan.")
+        sys.exit(0)
+    return oliolista
+
+def analysoi(oliolista, tuloslista):
+    tuloslista.clear()
+    kategoriat = [0, 0, 0, 0]
+    lkm = 0
+    edellinen = time.strftime("%m.%d", oliolista[0].aikaleima)
+    summa = 0.0
+    
+    for indeksi, alkio in enumerate(oliolista):
+        if time.strftime("%m.%d", alkio.aikaleima) == edellinen:
+            summa = summa + alkio.sademaara
+        else:
+            tulos = TIEDOT()
+            tulos.aikaleima = oliolista[indeksi - 1].aikaleima
+            tulos.aikavyohyke = oliolista[indeksi - 1].aikavyohyke
+            tulos.sademaara = summa
+            tuloslista.append(tulos)
+            edellinen = time.strftime("%m.%d", alkio.aikaleima)
+            summa = alkio.sademaara
+            lkm = lkm + 1
+            
+    tulos = TIEDOT()
+    tulos.aikaleima = oliolista[-1].aikaleima
+    tulos.aikavyohyke = oliolista[-1].aikavyohyke
+    tulos.sademaara = summa
+    tuloslista.append(tulos)
+    lkm = lkm + 1
+
+    for tulos in tuloslista:
+        if tulos.sademaara >= 4.5:
+            kategoriat[0] = kategoriat[0] + 1
+            tulos.kategoria = 1
+        elif 1.0 <= tulos.sademaara < 4.5:
+            kategoriat[1] = kategoriat[1] + 1
+            tulos.kategoria = 2
+        elif 0.3 <= tulos.sademaara < 1.0:
+            kategoriat[2] = kategoriat[2] + 1
+            tulos.kategoria = 3
+        elif 0 <= tulos.sademaara < 0.3:
+            kategoriat[3] = kategoriat[3] + 1
+            tulos.kategoria = 4
+
+    tuloslista.append(kategoriat)
+    
+    print(f"Päivittäiset summat laskettu {lkm} päivälle.")
+    print("Päivät kategorisoitu 4 kategoriaan.\n")
+    return tuloslista
+
+def muotoilu(tuloslista, tulosteet):
+    tulosteet.clear()
+    kategoriat = tuloslista[-1]
+    del tuloslista[-1]
+
+    tulosteet.append("Kategoria;Päivien lukumäärä:\n")
+    
+    for indeksi, kategoria in enumerate(kategoriat):
+        tulosteet.append(f"Kategoria {indeksi + 1};{kategoria}\n")
+
+    tulosteet.append("\nKaikki päivittäiset sademäärät:\n")
+    tulosteet.append("Pvm;mm\n")
+    
+    for tulos in tuloslista:
+        paivamaara = time.strftime("%d.%m.%Y", tulos.aikaleima)
+        tulosteet.append(f"{paivamaara};{round(tulos.sademaara, 1)}\n")
+
+    kategoriat.clear()
+    return tulosteet
+
+def tiedostoKirjoita(nimi, tulosteet):
+    try:
+        tiedosto = open(nimi, "w", encoding="UTF-8")
+        
+        for tulos in tulosteet:
+            tiedosto.write(tulos)
+            
+        print(f"Tiedosto '{nimi}' kirjoitettu.\n")
+        tiedosto.close()
+        
+    except OSError:
+        print(f"Tiedoston '{nimi}' käsittelyssä virhe, lopetetaan.")
+        sys.exit(0)
+    return None
+
+def paivittainenAnalyysi(nimi, oliolista, tulosteet):
+    tulosteet.clear()
+    paivalista = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    viikonpaivat = ["Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai", "Sunnuntai"]
+
+    tulosteet.append("Viikonpäivä;Sadekertymä\n")
+
+    for alkio in oliolista:
+        paiva = int(time.strftime("%w", alkio.aikaleima))
+        paivalista[paiva - 1] = paivalista[paiva - 1] + alkio.sademaara
+
+    for indeksi, sadekertyma in enumerate(paivalista):
+        viikonpaiva = viikonpaivat[indeksi]
+        tulosteet.append(f"{viikonpaiva};{round(sadekertyma, 1)}\n")
+
+    paivalista.clear()
+    viikonpaivat.clear()
+    return tulosteet
+
+def lueJaYhdista(nimi, tuloslista, tulosteet):
+    tulosteet.clear()
+    summa = 0
+    indeksi = 0
+
+    try:
+        tiedosto = open(nimi, "r", encoding="UTF-8")
+        tiedosto.readline()
+        
+        while True:
+            rivi = tiedosto.readline()
+            if len(rivi) == 0:
+                break
+            else:
+                tiedot = rivi.strip().split(';')
+                aikaleima = time.strptime(tiedot[0], "%d.%m.%Y")
+                aika = time.strftime("%d.%m", aikaleima)
+                if aika == time.strftime("%d.%m", tuloslista[indeksi].aikaleima):
+                    tieto = TIEDOT()
+                    tuloslista[indeksi].mustikkamaa = tieto.mustikkamaa = int(tiedot[1])
+                    tuloslista[indeksi].kauppatori = tieto.kauppatori = int(tiedot[2])
+                    tuloslista[indeksi].hakaniemi = tieto.hakaniemi = int(tiedot[3])
+                    summa = summa + tieto.mustikkamaa + tieto.kauppatori + tieto.hakaniemi
+                    indeksi = indeksi + 1
+
+        tulosteet.append("Pvm;Sademäärä;Mustikkamaa;Kauppatori;Hakaniemi\n")
+        for tulos in tuloslista:
+            paivamaara = time.strftime("%d.%m.%Y", tulos.aikaleima)
+            tulosteet.append(f"{paivamaara};{round(tulos.sademaara, 1)};{tulos.mustikkamaa};{tulos.kauppatori};{tulos.hakaniemi}\n")
+                
+        print(f"Tiedosto '{nimi}' luettu.")
+        print(f"Tiedot yhdistetty, kävijämäärä on yhteensä {summa}.\n")
+        tiedosto.close()
+        
+    except OSError:
+        print(f"Tiedoston '{nimi}' käsittelyssä virhe, lopetetaan.")
+        sys.exit(0)
+    return tulosteet
+
+def kategoriaAnalyysi(tuloslista, tulosteet):
+    tulosteet.clear()
+    tulosmatriisi = numpy.zeros((12, 4), float)
+    apumatriisi = numpy.zeros((12, 4), int)
+    edellinen = None
+
+    for tulos in tuloslista:
+        kuukausi = int(time.strftime("%m", tulos.aikaleima))
+        kategoria = tulos.kategoria
+        
+        if kuukausi == edellinen or edellinen is None:
+            tulosmatriisi[kuukausi - 1][kategoria - 1] += tulos.mustikkamaa + tulos.kauppatori + tulos.hakaniemi
+            apumatriisi[kuukausi - 1][kategoria - 1] += 1
+        else:
+            edellinen = kuukausi
+
+    apumatriisi[apumatriisi == 0] = 1
+    tulosmatriisi = numpy.round(tulosmatriisi / apumatriisi, 1)
+
+    tulosteet.append("Kuukausi;Kategoria 1;Kategoria 2;Kategoria 3;Kategoria 4\n")
+    
+    for indeksi, rivi in enumerate(tulosmatriisi):
+        kk = time.strftime("%b", time.strptime(str(indeksi + 1), "%m"))
+        rivi = [kk] + list(map(str, rivi))
+        tulosteet.append(';'.join(rivi))
+        tulosteet.append('\n')
+
+    print("Kuukausikohtaiset sademäärät analysoitu.")
+    rivi.clear()
+    tulosmatriisi = numpy.delete(tulosmatriisi, numpy.s_[:], None)
+    apumatriisi = numpy.delete(apumatriisi, numpy.s_[:], None)
+    return tulosteet
+    
+
+
+
+#eof
+
